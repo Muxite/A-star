@@ -1,9 +1,48 @@
-# by Muk Chunpongtong, based on tutorial by Sabastian Lague (for C#)
+# by Muk Chunpongtong, based on tutorial by Sebastian Lague (for C#)
+import math
+
+dimensions = 2
 nodes = []  # this is the map. Each node is a class, open and closed hold pointers.
 nodes_open = []
 nodes_closed = []
-start = []  # node to start at
-target = []  # node to pathfind towards
+neighbours = []  # describes the neighbour locations
+start = None  # node to start at
+target = None  # node to pathfind towards
+
+
+# calculate the distance between two points with as many dimensions
+def distance(pi, pf):
+    dim = len(pi)  # the number of dimensions to use
+    adder = 0
+    for i in range(len(pi)):
+        adder += (pi[i]-pf[i])**2
+    return round(adder**(1/2)*100)
+
+
+def standard_neighbours(dim):
+    # get neighbours for this number of dimensions
+    delta = [-1, 0, 1]
+    for i in range(len(delta) ** dim):
+        neighbours.append([])
+
+    # remove [0, 0] or [0, 0, 0]
+    center = []
+    for i in range(dim):
+        center.append(0)
+
+    for d in range(dim):
+        for i in range(len(delta) ** dim):
+            v = math.floor(i / (len(delta) ** d))
+            neighbours[i].append(delta[v % len(delta)])
+            # if finishing last dimension
+            if d == dim-1:
+                neighbours[i].append(distance(center, neighbours[i]))
+    center.append(0)  # the distance to center is 0
+    neighbours.remove(center)
+    print(neighbours)
+
+
+standard_neighbours(dimensions)
 
 
 # node class stores data
@@ -14,7 +53,7 @@ class Node:
         self.state = state  # 0 base, 1 open, 2 closed
 
 
-def a_star ():
+def a_star():
     global nodes
     global nodes_open
     global nodes_closed
@@ -36,6 +75,9 @@ def a_star ():
         current = nodes_open[f_min_i(nodes_open)]  # current = lowest f_cost that is open
         nodes_open.remove(current)  # these are just pointers
         nodes_closed.append(current)
+
+        # stop if at the target
         if current.location == target.location:
             print("Pathfinding Finished")
             return
+
