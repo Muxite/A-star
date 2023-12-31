@@ -1,20 +1,41 @@
 # by Muk Chunpongtong, based on tutorial by Sebastian Lague (for C#)
+# uses a straight-line heuristic
 import math
+from PIL import Image
 
+image_path = 'D:\Github\A-star\TestMap.png'
 dimensions = 2
 nodes = []  # this is the map. Each node is a class, open and closed hold pointers.
 nodes_open = []
 nodes_closed = []
 neighbours = []  # describes the neighbour locations and distance as the last one
-start = None  # node to start at
-target = None  # node to pathfind towards
+start = [0, 0]  # node to start at (positions are lists for now)
+target = [7, 7]  # node to pathfind towards
+
+
+# produce a 2d node map from an image
+def image_to_nodes(path, walkable_color, unwalkable_color):
+    image = Image.open(path)
+    pixels = image.load()
+    width, height = image.size
+    node_map = []
+    closed_nodes = []
+    for y in range(height):
+        node_map.append([])
+        for x in range(width):
+            if pixels[x, y] == walkable_color:
+                node_map[y].append(Node([x, y], 0, -1, -1))
+            elif pixels[x, y] == unwalkable_color:
+                node_map[y].append(Node([x, y], 2, -1, -1))  # closed node
+                closed_nodes.append(node_map[y][x])
+    return node_map, closed_nodes
 
 
 # calculate the distance between two points with as many dimensions
 def distance(pi, pf):
     dim = len(pi)  # the number of dimensions to use
     adder = 0
-    for i in range(len(pi)):
+    for i in range(dim):
         adder += (pi[i]-pf[i])**2
     return round(adder**(1/2)*100)
 
@@ -39,16 +60,47 @@ def standard_neighbours(dim):
                 neighbours[i].append(distance(center, neighbours[i]))
     center.append(0)  # the distance to center is 0
     neighbours.remove(center)
-    print(neighbours)
 
 
 standard_neighbours(dimensions)
 
 
+def get_current_node(n, s):
+    c = nodes
+    for i in s:
+        c = c[i]
+    return c
+
+
+def sum_lists(a, b, g):
+    # a and b must have equal lengths (IndexError otherwise)
+    c = []
+    for i in range(len(a)):
+        c.append(a[i]+b[i]*g)
+    return c
+
+
+def ascii_display_2d(list_of_lists):
+    for i in range(len(list_of_lists)):
+        to_print = []
+        for j in range(len(list_of_lists[i])):
+            if list_of_lists[i][j].location == target:
+                to_print.append("X")
+            elif list_of_lists[i][j].location == start:
+                to_print.append("O")
+            elif list_of_lists[i][j].state == 1:
+                to_print.append("@")
+            elif list_of_lists[i][j].state == 2:
+                to_print.append("#")
+            else:
+                to_print.append("/")
+        print(to_print)
+
+
 # node class stores data
 class Node:
     def __init__(self, location, state, g_cost, h_cost):
-        self.location = location  # x, y, maybe z
+        self.location = location  # x, y, maybe z. This is currently a list.
         self.g_cost = g_cost  # distance to start
         self.h_cost = h_cost  # distance to target
         self.state = state  # 0 base, 1 open, 2 closed
@@ -76,14 +128,12 @@ def a_star():
     for i in range(0, 10000):
         # except for the first loop
         if i == 0:
-            if dimensions == 2:
-                current = nodes[start[0]][start[1]]
-            elif dimensions == 3:
-                current = nodes[start[0]][start[1]][start[2]]
+            current = get_current_node(nodes, start)
         else:
             current = nodes_open[f_min_i(nodes_open)]  # current = lowest f_cost that is open
         nodes_open.remove(current)  # these are just pointers
         nodes_closed.append(current)
+        current.state = 2  # change state to closed
 
         # stop if at the target
         if current.location == target:
@@ -94,23 +144,28 @@ def a_star():
         for j in range(len(neighbours)):
             neighbour = current  # this will change
             try:
-                n_location = current.location + neighbours[j]
-                if dimensions == 2:
-                    neighbour = nodes[n_location[0]][n_location[1]]
-                elif dimensions == 3:
-                    neighbour = nodes[n_location[0]][n_location[1]][n_location[2]]
+                n_location = sum_lists(current.location, neighbours[j], 1)
+                neighbour = current = get_current_node(nodes, n_location)
             except IndexError:
                 j += 1  # skip to next neighbour
+
+            # if no IndexError
             if neighbour is not current:
                 # if not closed
                 if neighbour.state != 2:
                     # add the previous g_cost with the distance from it to this neighbour cell
                     path_length = current.g_cost + neighbours[i][dimensions]
                     if path_length < neighbour.g_cost or neighbour.state != 1:
+
                         # update f_cost
                         neighbour.g_cost = path_length
                         neighbour.h_cost = distance(neighbour.location, target)
+
                         # set the parent to retrace steps later
                         neighbour.parent = current
                         if neighbour not in nodes_open:
                             nodes_open.append(neighbour)
+
+
+nodes, nodes_closed = image_to_nodes(image_path, (255, 255, 255), (0, 0, 0))
+ascii_display_2d(nodes)
