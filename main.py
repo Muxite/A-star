@@ -3,21 +3,24 @@
 import math
 from PIL import Image
 
-image_path = 'D:\Github\A-star\TestMap.png'
+image_path = "D:\Github\A-star\TestMap1.png"
 dimensions = 2
+bounds = []
 nodes = []  # this is the map. Each node is a class, open and closed hold pointers.
 nodes_open = []
 nodes_closed = []
 neighbours = []  # describes the neighbour locations and distance as the last one
 start = [0, 0]  # node to start at (positions are lists for now)
-target = [7, 7]  # node to pathfind towards
+target = [7, 13]  # node to pathfind towards (x,y)
 
 
 # produce a 2d node map from an image
 def image_to_nodes(path, walkable_color, unwalkable_color):
+    global bounds
     image = Image.open(path)
     pixels = image.load()
     width, height = image.size
+    bounds = [width, height]
     node_map = []
     closed_nodes = []
     for y in range(height):
@@ -36,12 +39,12 @@ def distance(pi, pf):
     dim = len(pi)  # the number of dimensions to use
     adder = 0
     for i in range(dim):
-        adder += (pi[i]-pf[i])**2
-    return round(adder**(1/2)*100)
+        adder += (pi[i] - pf[i]) ** 2
+    return round(adder ** (1 / 2) * 100)
 
 
+# get neighbours for this number of dimensions
 def standard_neighbours(dim):
-    # get neighbours for this number of dimensions
     delta = [-1, 0, 1]
     for i in range(len(delta) ** dim):
         neighbours.append([])
@@ -56,7 +59,7 @@ def standard_neighbours(dim):
             v = math.floor(i / (len(delta) ** d))
             neighbours[i].append(delta[v % len(delta)])
             # if finishing last dimension
-            if d == dim-1:
+            if d == dim - 1:
                 neighbours[i].append(distance(center, neighbours[i]))
     center.append(0)  # the distance to center is 0
     neighbours.remove(center)
@@ -65,21 +68,25 @@ def standard_neighbours(dim):
 standard_neighbours(dimensions)
 
 
-def get_current_node(n, s):
-    c = nodes
-    for i in s:
-        c = c[i]
+# return a node using location stored as a list
+def get_node(n, s):
+    c = n
+    # loop apply the axes of s to n in descending order
+    for i in range(len(s) - 1, -1, -1):
+        c = c[s[i]]
     return c
 
 
+# add two lists together
 def sum_lists(a, b, g):
     # a and b must have equal lengths (IndexError otherwise)
     c = []
     for i in range(len(a)):
-        c.append(a[i]+b[i]*g)
+        c.append(a[i] + b[i] * g)
     return c
 
 
+# display a 2D node map (for debug)
 def ascii_display_2d(list_of_lists):
     for i in range(len(list_of_lists)):
         to_print = []
@@ -93,7 +100,7 @@ def ascii_display_2d(list_of_lists):
             elif list_of_lists[i][j].state == 2:
                 to_print.append("#")
             else:
-                to_print.append("/")
+                to_print.append(" ")
         print(to_print)
 
 
@@ -107,31 +114,43 @@ class Node:
         self.parent = None  # will set this later
 
 
+# determine if the location is within the node_map HARDCODED FOR 2D
+def check(location):
+    for i in range(dimensions):
+        if 0 > location[i] or location[i] > bounds[i]:
+            return False
+    return True
+
+
+# the main function that modifies nodes, nodes_open, and nodes_closed into the solution
 def a_star():
     global nodes
     global nodes_open
     global nodes_closed
     global start
     global target
-    nodes_open.append(start)
+    nodes_open.append(get_node(nodes, start))
 
     # return the index of the lowest f_min
     def f_min_i(nodes_list):
         lowest = 99999999
         index = -1
-        for j in range(len(nodes_list)):
-            if nodes_list[j].g_cost + nodes_list[j].h_cost < lowest:
-                index = j
+        for k in range(len(nodes_list)):
+            if nodes_list[k].g_cost + nodes_list[k].h_cost < lowest:
+                lowest = nodes_list[k].g_cost + nodes_list[k].h_cost
+                index = k
         return index
 
     # main loop
     for i in range(0, 10000):
+        print(i)
         # except for the first loop
-        if i == 0:
-            current = get_current_node(nodes, start)
+        if i < 1:
+            current = get_node(nodes, start)
+
         else:
             current = nodes_open[f_min_i(nodes_open)]  # current = lowest f_cost that is open
-        nodes_open.remove(current)  # these are just pointers
+            nodes_open.remove(current)  # these are just pointers
         nodes_closed.append(current)
         current.state = 2  # change state to closed
 
@@ -144,17 +163,18 @@ def a_star():
         for j in range(len(neighbours)):
             neighbour = current  # this will change
             try:
-                n_location = sum_lists(current.location, neighbours[j], 1)
-                neighbour = current = get_current_node(nodes, n_location)
+                n_location = sum_lists(current.location, neighbours[j][0:dimensions], 1)
+                if check(n_location):
+                    neighbour = get_node(nodes, n_location)
             except IndexError:
-                j += 1  # skip to next neighbour
+                print("skipping")
 
             # if no IndexError
             if neighbour is not current:
                 # if not closed
                 if neighbour.state != 2:
                     # add the previous g_cost with the distance from it to this neighbour cell
-                    path_length = current.g_cost + neighbours[i][dimensions]
+                    path_length = current.g_cost + neighbours[j][dimensions]
                     if path_length < neighbour.g_cost or neighbour.state != 1:
 
                         # update f_cost
@@ -163,9 +183,18 @@ def a_star():
 
                         # set the parent to retrace steps later
                         neighbour.parent = current
-                        if neighbour not in nodes_open:
+                        if neighbour.state != 1:
                             nodes_open.append(neighbour)
+                            neighbour.state = 1
+        # end if no open nodes remain, without this there will be an error + wasted processing
+        if len(nodes_open) == 0:
+            print('failed')
+            break
+
+        # give a snapshot of the algorithm each loop
+        ascii_display_2d(nodes)
 
 
+# test the code
 nodes, nodes_closed = image_to_nodes(image_path, (255, 255, 255), (0, 0, 0))
-ascii_display_2d(nodes)
+a_star()
