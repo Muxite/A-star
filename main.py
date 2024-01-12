@@ -194,6 +194,18 @@ def a_star():
         # give a snapshot of the algorithm each loop
         ascii_display_2d(nodes)
 
+    # trace the path
+    parent_child_node = get_node(nodes, target)  # get the last one
+    start_node = get_node(nodes, start)
+    path = []  # path as a list of nodes, use path[i].location for location data
+    for i in range(100):
+        path.append(parent_child_node)
+        if parent_child_node is not start_node:
+            parent_child_node = parent_child_node.parent
+        else:
+            break
+    print("Path Traced")
+
 
 # test the code
 nodes, nodes_closed = image_to_nodes(image_path, (255, 255, 255), (0, 0, 0))
