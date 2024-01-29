@@ -29,7 +29,7 @@ def image_to_nodes(path, walkable_color, unwalkable_color):
             if pixels[x, y] == walkable_color:
                 node_map[y].append(Node([x, y], 0, -1, -1))
             elif pixels[x, y] == unwalkable_color:
-                node_map[y].append(Node([x, y], 2, -1, -1))  # closed node
+                node_map[y].append(Node([x, y], -1, -1, -1))  # closed node
                 closed_nodes.append(node_map[y][x])
     return node_map, closed_nodes
 
@@ -87,21 +87,34 @@ def sum_lists(a, b, g):
 
 
 # display a 2D node map (for debug)
-def ascii_display_2d(list_of_lists):
+def display_2d(list_of_lists, name):
+    im = Image.new('RGB', (bounds[0], bounds[1]), color=(255, 255, 255))
+    pix = im.load()
     for i in range(len(list_of_lists)):
         to_print = []
         for j in range(len(list_of_lists[i])):
             if list_of_lists[i][j].location == target:
-                to_print.append("X")
+                to_print.append("t")
+                pix[j, i] = (0, 0, 255)  # blue
             elif list_of_lists[i][j].location == start:
-                to_print.append("O")
-            elif list_of_lists[i][j].state == 1:
-                to_print.append("@")
-            elif list_of_lists[i][j].state == 2:
+                to_print.append("s")
+                pix[j, i] = (0, 255, 0)  # green
+            elif list_of_lists[i][j].state == -1:
                 to_print.append("#")
+                pix[j, i] = (0, 0, 0)  # black
+            elif list_of_lists[i][j].state == 1:
+                to_print.append("o")
+                pix[j, i] = (170, 255, 170)  # light green
+            elif list_of_lists[i][j].state == 2:
+                to_print.append("c")  # pink
+                pix[j, i] = (255, 170, 170)
+            elif list_of_lists[i][j].state == 3:
+                to_print.append("p")
+                pix[j, i] = (255, 0, 255)  # magenta
             else:
                 to_print.append(" ")
         print(to_print)
+    im.save(str(name) + ".png")
 
 
 # node class stores data
@@ -110,7 +123,7 @@ class Node:
         self.location = location  # x, y, maybe z. This is currently a list.
         self.g_cost = g_cost  # distance to start
         self.h_cost = h_cost  # distance to target
-        self.state = state  # 0 base, 1 open, 2 closed
+        self.state = state  # 0 base, 1 open, 2 closed, 3 final path
         self.parent = None  # will set this later
 
 
@@ -157,7 +170,7 @@ def a_star():
         # stop if at the target
         if current.location == target:
             print("Pathfinding Finished")
-            return
+            break
 
         # for neighbours of current
         for j in range(len(neighbours)):
@@ -172,7 +185,7 @@ def a_star():
             # if no IndexError
             if neighbour is not current:
                 # if not closed
-                if neighbour.state != 2:
+                if neighbour.state != 2 and neighbour.state != -1:
                     # add the previous g_cost with the distance from it to this neighbour cell
                     path_length = current.g_cost + neighbours[j][dimensions]
                     if path_length < neighbour.g_cost or neighbour.state != 1:
@@ -192,19 +205,21 @@ def a_star():
             break
 
         # give a snapshot of the algorithm each loop
-        ascii_display_2d(nodes)
+        display_2d(nodes, i)
 
     # trace the path
     parent_child_node = get_node(nodes, target)  # get the last one
     start_node = get_node(nodes, start)
     path = []  # path as a list of nodes, use path[i].location for location data
-    for i in range(100):
+    for i in range(1000):
         path.append(parent_child_node)
+        parent_child_node.state = 3  # set to path
         if parent_child_node is not start_node:
             parent_child_node = parent_child_node.parent
         else:
             break
     print("Path Traced")
+    display_2d(nodes, 'end')
 
 
 # test the code
