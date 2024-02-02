@@ -10,8 +10,8 @@ nodes = []  # this is the map. Each node is a class, open and closed hold pointe
 nodes_open = []
 nodes_closed = []
 neighbours = []  # describes the neighbour locations and distance as the last one
-start = [0, 0]  # node to start at (positions are lists for now)
-target = [7, 13]  # node to pathfind towards (x,y)
+start = 0, 0  # node to start at (positions are lists for now)
+target = 7, 13  # node to pathfind towards (x,y)
 
 
 # produce a 2d node map from an image
@@ -20,16 +20,16 @@ def image_to_nodes(path, walkable_color, unwalkable_color):
     image = Image.open(path)
     pixels = image.load()
     width, height = image.size
-    bounds = [width, height]
+    bounds = width, height
     node_map = []
     closed_nodes = []
     for y in range(height):
         node_map.append([])
         for x in range(width):
             if pixels[x, y] == walkable_color:
-                node_map[y].append(Node([x, y], 0, -1, -1))
+                node_map[y].append(Node((x, y), 0, -1, -1))
             elif pixels[x, y] == unwalkable_color:
-                node_map[y].append(Node([x, y], -1, -1, -1))  # closed node
+                node_map[y].append(Node((x, y), -1, -1, -1))  # closed node
                 closed_nodes.append(node_map[y][x])
     return node_map, closed_nodes
 
@@ -120,7 +120,7 @@ def display_2d(list_of_lists, name):
 # node class stores data
 class Node:
     def __init__(self, location, state, g_cost, h_cost):
-        self.location = location  # x, y, maybe z. This is currently a list.
+        self.location = location  # x, y, maybe z. Is a tuple.
         self.g_cost = g_cost  # distance to start
         self.h_cost = h_cost  # distance to target
         self.state = state  # 0 base, 1 open, 2 closed, 3 final path
