@@ -129,8 +129,9 @@ class Node:
 
 # determine if the location is within the node_map HARDCODED FOR 2D
 def check(location):
+    dimensions = len(location)
     for i in range(dimensions):
-        if 0 > location[i] or location[i] > bounds[i]:
+        if location[i] < bounds[i][0] or location[i] > bounds[i][1]:
             return False
     return True
 
