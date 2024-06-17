@@ -3,15 +3,15 @@
 import math
 from PIL import Image
 
-image_path = "D:\Github\A-star\TestMap2.png"
+image_path = "D:\Github\A-star\找.png"
 dimensions = 2
 bounds = []
 nodes = []  # this is the map. Each node is a class, open and closed hold pointers.
 nodes_open = []
 nodes_closed = []
 neighbours = []  # describes the neighbour locations and distance as the last one
-start = (0, 0)  # node to start at (positions are lists for now)
-target = (99, 39)  # node to pathfind towards (x,y)
+start = (19, 19)  # node to start at
+target = (0, 0)  # node to pathfind towards (x,y)
 
 
 # produce a 2d node map from an image
