@@ -3,15 +3,15 @@
 import math
 from PIL import Image
 
-image_path = "D:\Github\A-star\TestMap1.png"
+image_path = "D:\Github\A-star\TestMap2.png"
 dimensions = 2
 bounds = []
 nodes = []  # this is the map. Each node is a class, open and closed hold pointers.
 nodes_open = []
 nodes_closed = []
 neighbours = []  # describes the neighbour locations and distance as the last one
-start = 0, 0  # node to start at (positions are lists for now)
-target = 7, 13  # node to pathfind towards (x,y)
+start = (0, 0)  # node to start at (positions are lists for now)
+target = (99, 39)  # node to pathfind towards (x,y)
 
 
 # produce a 2d node map from an image
@@ -20,7 +20,7 @@ def image_to_nodes(path, walkable_color, unwalkable_color):
     image = Image.open(path)
     pixels = image.load()
     width, height = image.size
-    bounds = width, height
+    bounds = (width, height)
     node_map = []
     closed_nodes = []
     for y in range(height):
@@ -113,7 +113,7 @@ def display_2d(list_of_lists, name):
                 pix[j, i] = (255, 0, 255)  # magenta
             else:
                 to_print.append(" ")
-        print(to_print)
+        # print(to_print)
     im.save(str(name) + ".png")
 
 
@@ -129,9 +129,8 @@ class Node:
 
 # determine if the location is within the node_map HARDCODED FOR 2D
 def check(location):
-    dimensions = len(location)
     for i in range(dimensions):
-        if location[i] < bounds[i][0] or location[i] > bounds[i][1]:
+        if 0 > location[i] or location[i] > bounds[i]:
             return False
     return True
 
