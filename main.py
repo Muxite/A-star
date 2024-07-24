@@ -1,23 +1,17 @@
-# by Muk Chunpongtong, based on tutorial by Sebastian Lague (for C#)
+# by Muk Chunpongtong, algorithm taken from Sebastian Lague pseudocode.
 # uses a straight-line heuristic
 import math
 import random
-
 from PIL import Image
+import copy
 
-image_path = r"D:\Github\A-star\Banner1.png"
-dimensions = 2
-bounds = []
-nodes = []  # this is the map. Each node is a class, open and closed hold pointers.
-nodes_open = []
-nodes_closed = []
-neighbours = []  # describes the neighbour locations and distance as the last one
-add = []
+
+neigh_dirs = []  # describes the neighbour locations and distance as the last one
+adder = []
 
 
 # produce a 2d node map from an image
-def image_to_nodes(path, walkable_color, unwalkable_color):
-    global bounds
+def image_to_nodes(walkable_color, unwalkable_color, path):
     image = Image.open(path)
     pixels = image.load()
     width, height = image.size
@@ -32,41 +26,38 @@ def image_to_nodes(path, walkable_color, unwalkable_color):
             elif pixels[x, y] == unwalkable_color:
                 node_map[y].append(Node((x, y), -1, -1, -1))  # closed node
                 closed_nodes.append(node_map[y][x])
-    return node_map, closed_nodes
+    return node_map, closed_nodes, bounds
 
 
 # calculate the distance between two points with as many dimensions
 def distance(pi, pf):
     dim = len(pi)  # the number of dimensions to use
-    adder = 0
+    combiner = 0
     for i in range(dim):
-        adder += (pi[i] - pf[i]) ** 2
-    return round(adder ** (1 / 2) * 100)
+        combiner += (pi[i] - pf[i]) ** 2
+    return round(combiner ** (1 / 2) * 100)
 
 
 # get neighbours for this number of dimensions
-def standard_neighbours(dim):
+def standard_neighbours(dimensions=2):
     delta = [-1, 0, 1]
-    for i in range(len(delta) ** dim):
-        neighbours.append([])
+    for i in range(len(delta) ** dimensions):
+        neigh_dirs.append([])
 
     # remove [0, 0] or [0, 0, 0]
     center = []
-    for i in range(dim):
+    for i in range(dimensions):
         center.append(0)
 
-    for d in range(dim):
-        for i in range(len(delta) ** dim):
+    for d in range(dimensions):
+        for i in range(len(delta) ** dimensions):
             v = math.floor(i / (len(delta) ** d))
-            neighbours[i].append(delta[v % len(delta)])
+            neigh_dirs[i].append(delta[v % len(delta)])
             # if finishing last dimension
-            if d == dim - 1:
-                neighbours[i].append(distance(center, neighbours[i]))
+            if d == dimensions - 1:
+                neigh_dirs[i].append(distance(center, neigh_dirs[i]))
     center.append(0)  # the distance to center is 0
-    neighbours.remove(center)
-
-
-standard_neighbours(dimensions)
+    neigh_dirs.remove(center)
 
 
 # return a node using location stored as a list
@@ -88,28 +79,28 @@ def sum_lists(a, b, g):
 
 
 # display a 2D node map (for debug)
-def display_2d(list_of_lists, name, start, target):
+def display_2d(list_of_lists, name, start, target, bounds):
     im = Image.new('RGB', (bounds[0], bounds[1]), color=(255, 255, 255))
     pix = im.load()
-    for i in range(len(list_of_lists)):
+    for i, sublist in enumerate(list_of_lists):
         to_print = []
-        for j in range(len(list_of_lists[i])):
-            if list_of_lists[i][j].location == target:
+        for j, node in enumerate(sublist):
+            if node.location == target:
                 to_print.append("t")
                 pix[j, i] = (0, 0, 255)  # blue
-            elif list_of_lists[i][j].location == start:
+            elif node.location == start:
                 to_print.append("s")
                 pix[j, i] = (0, 255, 0)  # green
-            elif list_of_lists[i][j].state == -1:
+            elif node.state == -1:
                 to_print.append("#")
                 pix[j, i] = (0, 0, 0)  # black
-            elif list_of_lists[i][j].state == 1:
+            elif node.state == 1:
                 to_print.append("o")
                 pix[j, i] = (170, 255, 170)  # light green
-            elif list_of_lists[i][j].state == 2:
+            elif node.state == 2:
                 to_print.append("c")  # pink
                 pix[j, i] = (255, 170, 170)
-            elif list_of_lists[i][j].state == 3:
+            elif node.state == 3:
                 to_print.append("p")
                 pix[j, i] = (255, 0, 255)  # magenta
             else:
@@ -118,7 +109,7 @@ def display_2d(list_of_lists, name, start, target):
     im.save(str(name) + ".png")
 
 
-def release_banner(list_of_lists, start, target):
+def release_banner(list_of_lists, start, target, bounds, size):
     im = Image.new('RGB', (bounds[0], bounds[1]), color=(0, 0, 0))
     pix = im.load()
     for i in range(len(list_of_lists)):
@@ -145,7 +136,7 @@ def release_banner(list_of_lists, start, target):
             else:
                 to_print.append(" ")
         # print(to_print)
-    im = im.resize((960, 240), resample=Image.BOX)
+    im = im.resize(size)
     return im
 
 
@@ -160,7 +151,7 @@ class Node:
 
 
 # determine if the location is within the node_map HARDCODED FOR 2D
-def check(location):
+def check(location, bounds, dimensions=2):
     for i in range(dimensions):
         if 0 > location[i] or location[i] > bounds[i]:
             return False
@@ -168,26 +159,25 @@ def check(location):
 
 
 # the main function that modifies nodes, nodes_open, and nodes_closed into the solution
-def a_star(start, target):
-    global nodes
-    global nodes_open
-    global nodes_closed
-    global add
+def a_star(nodes, nodes_open, nodes_closed, start, target, bounds,
+           banner=False, add=None, dimensions=2, size=(240, 240)):
+    if add is None:
+        add = adder
     nodes_open.append(get_node(nodes, start))
-    banner = True
+    current = None
     # return the index of the lowest f_min
 
     def f_min_i(nodes_list):
         lowest = 99999999
         index = -1
-        for k in range(len(nodes_list)):
-            if nodes_list[k].g_cost + nodes_list[k].h_cost < lowest:
-                lowest = nodes_list[k].g_cost + nodes_list[k].h_cost
+        for k, node in enumerate(nodes_list):
+            if node.g_cost + node.h_cost < lowest:
+                lowest = node.g_cost + node.h_cost
                 index = k
         return index
 
     # main loop
-    for i in range(0, 10000):
+    for i in range(10000):
         # except for the first loop
         if i < 1:
             current = get_node(nodes, start)
@@ -204,21 +194,21 @@ def a_star(start, target):
             break
 
         # for neighbours of current
-        for j in range(len(neighbours)):
+        for j, neigh_dir in enumerate(neigh_dirs):
             neighbour = current  # this will change
             try:
-                n_location = sum_lists(current.location, neighbours[j][0:dimensions], 1)
-                if check(n_location):
+                n_location = sum_lists(current.location, neigh_dir[0:dimensions], 1)
+                if check(n_location, bounds):
                     neighbour = get_node(nodes, n_location)
             except IndexError:
-                print("skipping")
+                pass
 
             # if no IndexError
             if neighbour is not current:
                 # if not closed
                 if neighbour.state != 2 and neighbour.state != -1:
                     # add the previous g_cost with the distance from it to this neighbour cell
-                    path_length = current.g_cost + neighbours[j][dimensions]
+                    path_length = current.g_cost + neigh_dir[dimensions]
                     if path_length < neighbour.g_cost or neighbour.state != 1:
 
                         # update f_cost
@@ -237,13 +227,13 @@ def a_star(start, target):
 
         # give a snapshot of the algorithm each loop
         if banner:
-            add.append(release_banner(nodes, start, target))
+            add.append(release_banner(nodes, start, target, bounds, size))
 
         else:
-            display_2d(nodes, i, start, target)
+            display_2d(nodes, i, start, target, bounds)
 
     # trace the path
-    parent_child_node = get_node(nodes, target)  # get the last one
+    parent_child_node = current  # get the last one
     start_node = get_node(nodes, start)
     path = []  # path as a list of nodes, use path[i].location for location data
     for i in range(1000):
@@ -258,22 +248,24 @@ def a_star(start, target):
     if banner:
         # many of the traced frame
         for i in range(50):
-            add.append(release_banner(nodes, start, target))
+            add.append(release_banner(nodes, start, target, bounds, size))
 
     else:
-        display_2d(nodes, "end", start, target)
+        display_2d(nodes, "end", start, target, bounds)
 
 
-def banners_generate():
+def banners_generate(nodes,  nodes_open, nodes_closed, bounds, title, n_travels, duration, size):
+    node_save = copy.deepcopy(nodes)
+    nodes_open_save = copy.deepcopy(nodes_open)
+    nodes_closed_save = copy.deepcopy(nodes_closed)
     # it will pathfind from point a to b, b to c, c to d, and so on, then back to a
-    global nodes
-    global nodes_closed
-    global nodes_open
     initial_start = None
+    start = (0, 0)  # default
     end = (2, 1)  # for debug purposes
-    for i in range(15):
-        nodes, nodes_closed = image_to_nodes(image_path, (0, 0, 0), (160, 160, 160))
-        nodes_open = []
+    for i in range(n_travels):
+        nodes = node_save
+        nodes_open = nodes_open_save
+        nodes_closed = nodes_closed_save
         # get a start position if its the first time, otherwise, end becomes new start
         if i == 0:
             while True:
@@ -282,21 +274,51 @@ def banners_generate():
                     start = test
                     initial_start = test
                     break
-        elif i == 14:
+        elif i == n_travels-1:
             end = initial_start  # go to the start for the last one (HARD CODED)
         else:
             start = end  # previous end, which is viable because it was checked last round
-        if i != 14:
+        if i != n_travels-1:
             while True:
                 test = (random.randint(0, bounds[0] - 1), random.randint(0, bounds[1] - 1))
                 if nodes[test[1]][test[0]].state == 0:
                     end = test
                     break
 
-        a_star(start, end)  # fills add
+        a_star(nodes, nodes_open, nodes_closed, start, end, bounds, banner=True, size=size)  # fills add
     print("SAVING...")
-    add[0].save("A-star banner.gif", save_all=True, append_images=add[1:], optimize=True, duration=20,
-                    loop=0)
+    adder[0].save(title, save_all=True, append_images=adder[1:], optimize=True, duration=duration,
+                  loop=0)
 
 
-banners_generate()
+def main():
+    standard_neighbours()
+    nodes_open = []
+    original = str(input("Location of original image: "))
+    nodes, nodes_closed, bounds = image_to_nodes((0, 0, 0), (160, 160, 160), original)
+    if str(input("Make banner? (y/n): ") == 'y'):
+        title = str(input("Title of new banner: "))
+        n_travels = int(input("Number of travel sections:"))
+        duration = int(input("ms per frame: "))
+        size = int(input("X of size: ")), int(input("Y of size: "))
+        banners_generate(nodes, nodes_open, nodes_closed, bounds, title, n_travels, duration, size)
+    else:
+        start = int(input("X of start: ")), int(input("Y of start: "))
+        target = int(input("X of target: ")), int(input("Y of target: "))
+        a_star(nodes, nodes_open, nodes_closed, start, target, bounds)
+
+
+def test_system():
+    standard_neighbours()
+    nodes_open = []
+    original = r"D:\GitHub\A-star\Banner1.png"
+    nodes, nodes_closed, bounds = image_to_nodes((0, 0, 0), (160, 160, 160), original)
+    title = "TESTTEST.gif"
+    n_travels = 4
+    duration = 20
+    size = (960, 240)
+    banners_generate(nodes, nodes_open, nodes_closed, bounds, title, n_travels, duration, size)
+
+
+#  main()
+test_system()
